@@ -1,18 +1,22 @@
-import os
+import time
+import config
+
 from UpsDataProcurer import UpsDataProcurer
+upsDataProcurer = UpsDataProcurer(config.UNRAID_IP)
 
-def getConfigValue(key):
-    value = os.environ.get(key, None)
-    if value == None:
-        raise Exception(f'Missing environment variable: {key}')
-    print(f'INFO - Procured {key} value from env: {value}')
-    return value
-unraidUrlBase = getConfigValue('UNRAID_URL_BASE').strip(' ').strip('/')
-sessionCookie = getConfigValue('SESSION_COOKIE')
-scanIntervalSeconds = getConfigValue('SCAN_INTERVAL_SECONDS')
-scanOutputFilePath = getConfigValue('SCAN_OUTPUT_FILE_PATH')
+from JsonFileArrayAppender import JsonFileArrayAppender
+jsonFileArrayAppender = JsonFileArrayAppender(config.SCAN_OUTPUT_FILE_PATH, 'results')
 
+def scan_ups_data():
+    upsData = upsDataProcurer.procure(config.SESSION_COOKIE)
+    jsonFileArrayAppender.append(upsData)
 
-upsDataProcurer = UpsDataProcurer(unraidUrlBase)
-upsData = upsDataProcurer.procure(sessionCookie)
-print(upsData)
+# scan the ups data on a loop
+try:
+    while True:
+        scan_ups_data()
+        time.sleep(config.SCAN_INTERVAL_SECONDS)
+except KeyboardInterrupt:
+    print("Loop interrupted by user")
+except Exception as e:
+    print(e)
