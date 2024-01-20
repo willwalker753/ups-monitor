@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Usage History</title>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.js" integrity="sha512-uLlukEfSLB7gWRBvzpDnLGvzNUluF19IDEdUoyGAtaO0MVSBsQ+g3qhLRL3GTVoEzKpc24rVT6X1Pr5fmsShBg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    
+    <style>
+        canvas {
+            max-width: 800px;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="fileInput" accept=".txt">
+    <canvas id="powerChart"></canvas>
+    <label for="startDate">Start Date:</label>
+    <input type="date" id="startDate">
+    <label for="endDate">End Date:</label>
+    <input type="date" id="endDate">
+    <button onclick="updateChart()">Update Chart</button>
+    <p>High: <span id="highValue"></span></p>
+    <p>Low: <span id="lowValue"></span></p>
+    <p>Average: <span id="averageValue"></span></p>
+
+    <script>
+        let originalData;
+
+        document.getElementById('fileInput').addEventListener('change', handleFile);
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                originalData = processData(content);
+
+                renderChart(originalData, originalData[0].datetime, originalData[originalData.length-1].datetime);
+            };
+            reader.readAsText(file);
+        }
+
+        function processData(content) {
+            // Parse and process the content here
+            // Assuming content format: "YYYY-MM-DDTHH:MM:SS watts"
+            const lines = content.split('\n');
+            const data = lines
+                .map(line => {
+                    const [datetime, watts] = line.split(' ');
+                    return { datetime, watts: parseFloat(watts) };
+                })
+                .filter(item => item.datetime !== "");
+            return data;
+        }
+
+        function renderChart(data, startDate, endDate) {
+            const ctx = document.getElementById('powerChart').getContext('2d');
+            // console.log(data)
+            console.log(window.myChart)
+
+            // Check if a chart exists on the canvas
+            if (window.myChart) {
+                window.myChart.destroy(); // Destroy the existing chart
+            }
+            
+            window.myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(entry => entry.datetime),
+                    datasets: [{
+                        label: 'Power Usage',
+                        data: data.map(entry => entry.watts),
+                        borderColor: 'blue',
+                        fill: false,
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute', // Adjust as needed
+                                displayFormats: {
+                                    minute: 'HH:mm'
+                                }
+                            },
+                            min: new Date(startDate).valueOf(),
+                            max: new Date(endDate).valueOf()
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Watts'
+                            }
+                        }
+                    }
+                }
+            });
+
+            updateStatistics(data);
+        }
+
+        function updateChart() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!startDate || !endDate) {
+                alert("Please select both start and end dates.");
+                return;
+            }
+
+            const filteredData = originalData.filter(entry => entry.datetime >= startDate && entry.datetime <= endDate);
+
+            if (filteredData.length === 0) {
+                alert("No data available for the selected date range.");
+                return;
+            }
+
+            renderChart(filteredData, startDate, endDate);
+        }
+
+        function updateStatistics(data) {
+            const highValue = Math.max(...data.map(entry => entry.watts));
+            const lowValue = Math.min(...data.map(entry => entry.watts));
+            const averageValue = data.reduce((sum, entry) => sum + entry.watts, 0) / data.length;
+
+            document.getElementById('highValue').innerText = highValue.toFixed(2);
+            document.getElementById('lowValue').innerText = lowValue.toFixed(2);
+            document.getElementById('averageValue').innerText = averageValue.toFixed(2);
+        }
+    </script>
+</body>
+</html>
